@@ -8,6 +8,7 @@ import axios from "axios";
 import { Mic, Wand2, Loader } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCredits } from "@/hooks/use-credits";
+import { CreditDisplay } from "@/components/shared/credit-display";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,8 @@ import { Card } from "@/components/ui/card";
 
 const voiceCategories = ['alloy', 'shimmer', 'nova', 'echo', 'fable', 'onyx'];
 
+const PODCAST_GENERATION_COST = 1;
+
 const formSchema = z.object({
   title: z.string().min(1, {
     message: "Title is required.",
@@ -52,7 +55,7 @@ export const PodcastGenerator = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const [audioUrl, setAudioUrl] = useState("");
-  const { credits } = useCredits();
+  const { credits, setCredits } = useCredits();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,10 +71,19 @@ export const PodcastGenerator = () => {
     try {
       setLoading(true);
 
-      const response = await axios.post("/api/ai/podcast", values);
+      if (credits < PODCAST_GENERATION_COST) {
+        toast({
+          variant: "destructive",
+          description: "Insufficient credits. Please purchase more credits to continue.",
+        });
+        return;
+      }
+
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/podcast`, values);
       
       if (response.data.audioUrl) {
         setAudioUrl(response.data.audioUrl);
+        setCredits(credits - PODCAST_GENERATION_COST);
         toast({
           description: "Your podcast has been generated!",
         });
@@ -95,10 +107,7 @@ export const PodcastGenerator = () => {
           <div className="p-2 w-fit rounded-md bg-gray-900">
             <Mic className="w-6 h-6 text-purple-500" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">{credits} Credits</h2>
-            <p className="text-sm text-muted-foreground">(Cost: 1 credit)</p>
-          </div>
+          <CreditDisplay cost={PODCAST_GENERATION_COST} />
         </div>
         <Button 
           variant="premium" 
